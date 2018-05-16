@@ -37,7 +37,7 @@ extern crate term;
 use failure::ResultExt as _ResultExt;
 use itertools::Itertools as _Itertools;
 use regex::Regex;
-use reqwest::header::{Headers, Location, UserAgent};
+use reqwest::header::{ContentType, Headers, Location, UserAgent};
 use reqwest::{Method, RedirectPolicy, Response, StatusCode};
 use select::document::Document;
 use select::predicate::{Attr, Name, Predicate as _Predicate};
@@ -77,10 +77,6 @@ fn main() -> std::result::Result<(), failure::Error> {
         pass: password,
     };
     let response = http_post_urlencoded(&client, "/wi2net/Login/1/?Wi2=1", &[200, 302], &payload)?;
-    if response.status() == StatusCode::Ok {
-        eprintln!("You have already logged in, or you are connecting to different SSID");
-        process::exit(1);
-    }
     if let Some(location) = response.headers().get::<Location>() {
         let correct_location = Regex::new(r"\A/wi2net/Top/2/?(\?SSID=[0-9a-f]+)?/?\z").unwrap();
         if correct_location.is_match(location) {
@@ -140,7 +136,13 @@ fn http_post_urlencoded(
     body: &impl Serialize,
 ) -> std::result::Result<Response, failure::Error> {
     let body = serde_urlencoded::to_string(body)?;
-    http_request(client, relative_url, expected_statuses, Method::Get, body)
+    http_request(
+        client,
+        relative_url,
+        expected_statuses,
+        Method::Post,
+        (body, ContentType::form_url_encoded()),
+    )
 }
 
 fn http_request(
@@ -148,7 +150,7 @@ fn http_request(
     relative_url: &str,
     expected_statuses: &[u16],
     method: Method,
-    body: impl Into<Option<String>>,
+    body: impl Into<Option<(String, ContentType)>>,
 ) -> std::result::Result<Response, failure::Error> {
     static BASE: &str = "https://service.wi2.ne.jp";
     let url = format!("{}{}", BASE, relative_url);
@@ -168,8 +170,8 @@ fn http_request(
 
     let response = {
         let mut request = client.request(method, &url);
-        if let Some(body) = body.into() {
-            request.body(body);
+        if let Some((body, content_type)) = body.into() {
+            request.body(body).header(content_type);
         }
         request.send()?
     };
