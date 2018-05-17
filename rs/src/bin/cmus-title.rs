@@ -6,18 +6,32 @@
 //! license = "CC0-1.0"
 //! authors = ["wariuni <wariuni@gmail.com>"]
 //! repository = "https://github.com/wariuni/daily-scripts"
+//!
+//! [dependencies]
+//! structopt = "0.2.8"
 //! ```
+#[macro_use]
+extern crate structopt;
+
+use structopt::StructOpt as _StructOpt;
+
 use std::io::{self, BufWriter, Write as _Write};
 use std::process::{Command, Stdio};
 use std::time::Duration;
-use std::{env, process, str, thread};
+use std::{str, thread};
+
+#[derive(StructOpt)]
+#[structopt(name = "cmus-title", usage = "cmus-title [-i|--interval <interval>]")]
+struct Opt {
+    #[structopt(
+        short = "i", long = "interval", help = "Interval (by millisecond)", default_value = "1000"
+    )]
+    interval: u64,
+}
 
 fn main() {
-    const INTERVAL: Duration = Duration::from_secs(1);
-    if env::args().len() > 1 {
-        println!("Usage: cmus-title");
-        process::exit(1);
-    }
+    let Opt { interval } = Opt::from_args();
+    let interval = Duration::from_millis(interval);
     let stdout = io::stdout();
     let mut stdout = BufWriter::new(stdout.lock());
     loop {
@@ -36,7 +50,7 @@ fn main() {
             },
         }
         stdout.flush().unwrap();
-        thread::sleep(INTERVAL);
+        thread::sleep(interval);
     }
 }
 
