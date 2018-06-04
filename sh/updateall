@@ -6,10 +6,10 @@ echo '# Pacman (+AUR)'
 packer -Syu
 
 echo $'\n# pip3 (System)'
-sudo /usr/bin/pip3 install xkeysnail --upgrade
+sudo /usr/bin/pip3 install xkeysnail -U
 
 echo $'\n# pip3 (~/venv)'
-packages=`pip3 list -o --format=legacy | awk '{print $1}'`
+packages=`pip3 list -o | tail +3 | awk '{print $1}'`
 if [ -n "$packages" ]; then
   echo $packages | xargs pip3 install -U
 else
@@ -26,6 +26,8 @@ go get -u all
 
 echo $'\n# Cargo'
 if cargo install-update clippy rustfmt-nightly cargo-src -l | grep Yes; then
+  xdg-open https://github.com/rust-lang-nursery/rust-clippy/releases
+  xdg-open https://travis-ci.org/rust-lang-nursery/rust-clippy/builds
   exit 1
 fi
 rustup update stable
