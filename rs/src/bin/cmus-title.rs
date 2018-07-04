@@ -5,10 +5,10 @@
 //! version = "0.0.0"
 //! license = "CC0-1.0"
 //! authors = ["wariuni <wariuni@gmail.com>"]
-//! repository = "https://github.com/wariuni/daily-scripts"
+//! repository = "https://github.com/wariuni/scripts"
 //!
 //! [dependencies]
-//! structopt = "0.2.8"
+//! structopt = "~0.2.10"
 //! ```
 #[macro_use]
 extern crate structopt;
