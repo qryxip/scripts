@@ -1,34 +1,56 @@
 #!/bin/sh
 
-set -e
+set -euE -o pipefail
 
 echo '# Pacman (+AUR)'
 packer -Syu
 
-echo $'\n# pip3 (System)'
-sudo /usr/bin/pip3 install xkeysnail -U
-
-echo $'\n# pip3 (~/venv)'
-packages=`pip3 list -o | tail +3 | awk '{print $1}'`
-if [ -n "$packages" ]; then
-  echo $packages | xargs pip3 install -U
-else
-  echo 'No package to update'
+if [ -e /opt/xkeysnail/bin/pip3 ]; then
+  echo $'\n# pip3 (xkeysnail)'
+  sudo /opt/xkeysnail/bin/pip3 install xkeysnail -U
 fi
 
-echo $'\n# npm (LTS)'
-if [ -z "$(npm update -g)" ]; then
-  echo 'No package to update'
+if [ -e ~/venvs/playground/bin/pip3.6 ]; then
+  echo $'\n# pip3.6 (playground)'
+  packages=`~/venvs/playground/bin/pip3.6 list -o | tail +3 | awk '{print $1}'`
+  if [ -n "$packages" ]; then
+    echo $packages | xargs ~/venvs/playground/bin/pip3.6 install -U
+  else
+    echo 'No package to update'
+  fi
 fi
 
-echo $'\n# Go'
-go get -u all
-
-echo $'\n# Cargo'
-if cargo install-update clippy rustfmt-nightly cargo-src -l | grep Yes; then
-  xdg-open https://github.com/rust-lang-nursery/rust-clippy/releases
-  xdg-open https://travis-ci.org/rust-lang-nursery/rust-clippy/builds
-  exit 1
+if [ -e ~/venvs/pygmentize/bin/pip3.6 ]; then
+  echo $'\n# pip3.6 (pygmentize)'
+  ~/venvs/pygmentize/bin/pip3.6 install tw2.pygmentize -U
 fi
-rustup update stable
-cargo +stable install-update -ag
+
+if [ -e ~/venvs/ranger/bin/pip3.6 ]; then
+  echo $'\n# pip3.6 (ranger)'
+  ~/venvs/pygmentize/bin/pip3.6 install ranger-fm -U
+fi
+
+if which npm > /dev/null 2>&1; then
+  if which npm | grep ~ > /dev/null 2>&1; then
+    echo $'\n# npm (LTS)'
+    if [ -z "$(npm update -g)" ]; then
+      echo 'No package to update'
+    fi
+  fi
+fi
+
+if false; then
+  echo $'\n# Go'
+  go get -u all
+fi
+
+if [ -e ~/.cargo/bin/rustup ]; then
+  echo $'\n# Cargo'
+  if ~/.cargo/bin/cargo install-update clippy rustfmt-nightly cargo-src -l | grep Yes; then
+    xdg-open https://github.com/rust-lang-nursery/rust-clippy/releases
+    xdg-open https://travis-ci.org/rust-lang-nursery/rust-clippy/builds
+    exit 1
+  fi
+  ~/.cargo/bin/rustup update stable
+  ~/.cargo/bin/cargo +stable install-update -ag
+fi
