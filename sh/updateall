@@ -2,16 +2,31 @@
 
 set -euE -o pipefail
 
-echo '# Pacman (+AUR)'
+if [ "$TERM" = dumb ]; then
+  yellow=''
+  bold=''
+  ansi_reset=''
+else
+  yellow=`echo -e '\e[33m'`
+  bold=`echo -e '\e[1m'`
+  ansi_reset=`echo -e '\e[m'`
+fi
+
+if [ "`whoami`" = root ]; then
+  echo "${yellow}Don't run this script as root.${ansi_reset}"
+  exit 1
+fi
+
+echo "${bold}Pacman (+AUR)${ansi_reset}"
 packer -Syu
 
 if [ -e /opt/xkeysnail/bin/pip3 ]; then
-  echo $'\n# pip3 (xkeysnail)'
+  echo -e "\n${bold}pip3 (xkeysnail)${ansi_reset}"
   sudo /opt/xkeysnail/bin/pip3 install xkeysnail -U
 fi
 
 if [ -e ~/venvs/playground/bin/pip3.6 ]; then
-  echo $'\n# pip3.6 (playground)'
+  echo -e "\n${bold}pip3 (playground)${ansi_reset}"
   packages=`~/venvs/playground/bin/pip3.6 list -o | tail +3 | awk '{print $1}'`
   if [ -n "$packages" ]; then
     echo $packages | xargs ~/venvs/playground/bin/pip3.6 install -U
@@ -20,37 +35,38 @@ if [ -e ~/venvs/playground/bin/pip3.6 ]; then
   fi
 fi
 
+if [ -e ~/venvs/http/bin/pip3.6 ]; then
+  echo -e "\n${bold}pip3 (http)${ansi_reset}"
+  ~/venvs/http/bin/pip3.6 install httpie -U
+fi
+
 if [ -e ~/venvs/pygmentize/bin/pip3.6 ]; then
-  echo $'\n# pip3.6 (pygmentize)'
+  echo -e "\n${bold}pip3 (pygmentize)${ansi_reset}"
   ~/venvs/pygmentize/bin/pip3.6 install tw2.pygmentize -U
 fi
 
 if [ -e ~/venvs/ranger/bin/pip3.6 ]; then
-  echo $'\n# pip3.6 (ranger)'
-  ~/venvs/pygmentize/bin/pip3.6 install ranger-fm -U
+  echo -e "\n${bold}pip3 (ranger)${ansi_reset}"
+  ~/venvs/ranger/bin/pip3.6 install ranger-fm -U
 fi
 
 if which npm > /dev/null 2>&1; then
   if which npm | grep ~ > /dev/null 2>&1; then
-    echo $'\n# npm (LTS)'
+    echo -e "\n${bold}npm (LTS)${ansi_reset}"
     if [ -z "$(npm update -g)" ]; then
-      echo 'No package to update'
+      echo "${bold}No packages to update.${ansi_reset}"
     fi
   fi
 fi
 
 if false; then
-  echo $'\n# Go'
+  echo -e "\n${bold}Go${ansi_reset}"
   go get -u all
 fi
 
 if [ -e ~/.cargo/bin/rustup ]; then
-  echo $'\n# Cargo'
-  if ~/.cargo/bin/cargo install-update clippy rustfmt-nightly cargo-src -l | grep Yes; then
-    xdg-open https://github.com/rust-lang-nursery/rust-clippy/releases
-    xdg-open https://travis-ci.org/rust-lang-nursery/rust-clippy/builds
-    exit 1
-  fi
+  echo -e "\n${bold}Cargo${ansi_reset}"
+  ~/.cargo/bin/rustup self update
   ~/.cargo/bin/rustup update stable
   ~/.cargo/bin/cargo +stable install-update -ag
 fi
