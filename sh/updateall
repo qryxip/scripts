@@ -17,37 +17,42 @@ if [ "`whoami`" = root ]; then
   exit 1
 fi
 
-echo "${bold}Pacman (+AUR)${ansi_reset}"
-packer -Syu
+echo "${bold}yay${ansi_reset}"
+PATH=/usr/bin:$PATH yay -Syu
 
 if [ -e /opt/xkeysnail/bin/pip3 ]; then
   echo -e "\n${bold}pip3 (xkeysnail)${ansi_reset}"
-  sudo /opt/xkeysnail/bin/pip3 install xkeysnail -U
+  sudo /opt/xkeysnail/bin/pip3 install -U pip xkeysnail
 fi
 
-if [ -e ~/venvs/playground/bin/pip3.6 ]; then
+if [ -e ~/venvs/playground/bin/pip3 ]; then
   echo -e "\n${bold}pip3 (playground)${ansi_reset}"
-  packages=`~/venvs/playground/bin/pip3.6 list -o | tail +3 | awk '{print $1}'`
+  packages=`~/venvs/playground/bin/pip3 list -o | tail +3 | awk '{print $1}'`
   if [ -n "$packages" ]; then
-    echo $packages | xargs ~/venvs/playground/bin/pip3.6 install -U
+    echo $packages | xargs ~/venvs/playground/bin/pip3 install -U
   else
     echo 'No package to update'
   fi
 fi
 
-if [ -e ~/venvs/http/bin/pip3.6 ]; then
+if [ -e ~/venvs/http/bin/pip3 ]; then
   echo -e "\n${bold}pip3 (http)${ansi_reset}"
-  ~/venvs/http/bin/pip3.6 install httpie -U
+  ~/venvs/http/bin/pip3 install -U pip httpie
 fi
 
-if [ -e ~/venvs/pygmentize/bin/pip3.6 ]; then
+if [ -e ~/venvs/pygmentize/bin/pip3 ]; then
   echo -e "\n${bold}pip3 (pygmentize)${ansi_reset}"
-  ~/venvs/pygmentize/bin/pip3.6 install tw2.pygmentize -U
+  ~/venvs/pygmentize/bin/pip3 install -U pip tw2.pygmentize
 fi
 
-if [ -e ~/venvs/ranger/bin/pip3.6 ]; then
+if [ -e ~/venvs/ranger/bin/pip3 ]; then
   echo -e "\n${bold}pip3 (ranger)${ansi_reset}"
-  ~/venvs/ranger/bin/pip3.6 install ranger-fm -U
+  ~/venvs/ranger/bin/pip3 install -U pip ranger-fm
+fi
+
+if [ -e ~/venvs/oj/bin/pip3 ]; then
+  echo -e "\n${bold}pip3 (oj)${ansi_reset}"
+  ~/venvs/oj/bin/pip3 install -U pip online-judge-tools
 fi
 
 if which npm > /dev/null 2>&1; then
@@ -67,6 +72,10 @@ fi
 if [ -e ~/.cargo/bin/rustup ]; then
   echo -e "\n${bold}Cargo${ansi_reset}"
   ~/.cargo/bin/rustup self update
+  if [ -z $(cargo install-update -la | sed -n 's/^racer[0-9v\. ]\+\(No\)/\1/gp') ]; then
+    ~/.cargo/bin/rustup update nightly
+    ~/.cargo/bin/cargo +nightly install-update racer
+  fi
   ~/.cargo/bin/rustup update stable
   ~/.cargo/bin/cargo +stable install-update -ag
 fi
