@@ -1,4 +1,0 @@
-wrap_comments = true
-required_version = "0.8.2"
-unstable_features = true
-error_on_unformatted = true

@@ -1,0 +1,56 @@
+name:                scripts
+version:             0.1.0.0
+github:              "wariuni/scripts"
+license:             CC0 1.0
+author:              "Ryo Yamashita"
+maintainer:          "wariuni@gmail.com"
+copyright:           "2018 Ryo Yamashita"
+
+extra-source-files: []
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Scripts
+
+dependencies:
+- base >= 4.7 && < 5
+- http-client
+- http-client-tls
+- http-types
+- optparse-applicative
+- regex-posix
+- rio
+- scalpel-core
+
+library:
+  source-dirs: src
+
+executables:
+  wi2-300-login:
+    main:                wi2-300-login.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -Wall
+    - -Wcompat
+    - -Wincomplete-record-updates
+    - -Wincomplete-uni-patterns
+    - -Wredundant-constraints
+
+tests:
+  scripts-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - scripts
