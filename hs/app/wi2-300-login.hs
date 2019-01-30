@@ -1,5 +1,3 @@
-#!/usr/bin/env stack
--- stack script --resolver lts-9.21 --packages http-client http-client-lts http-types optparse-applicative regex-posix rio scalpel-core
 {-# LANGUAGE AutoDeriveTypeable #-}
 {-# LANGUAGE FlexibleContexts   #-}
 {-# LANGUAGE LambdaCase         #-}
@@ -11,38 +9,20 @@
 {-# LANGUAGE StrictData         #-}
 module Main (main) where
 
-import           Control.Applicative          (optional, (<**>))
-import           Network.HTTP.Client          (Manager, ResponseTimeout,
-                                               checkResponse, httpLbs,
-                                               managerModifyRequest,
-                                               managerResponseTimeout, method,
-                                               newManager, parseRequest,
-                                               redirectCount, requestHeaders,
-                                               responseBody, responseHeaders,
-                                               responseStatus,
-                                               responseTimeoutMicro,
-                                               responseTimeoutNone,
-                                               urlEncodedBody)
-import           Network.HTTP.Client.Internal (Response (Response))
-import           Network.HTTP.Client.TLS      (tlsManagerSettings)
-import           Network.HTTP.Types           (Status (Status))
-import           Network.HTTP.Types.Header    (hLocation)
-import           Options.Applicative          (auto, execParser, header, help,
-                                               helper, info, long, metavar,
-                                               option, short)
+import           Control.Applicative
+import           Network.HTTP.Client
+import           Network.HTTP.Client.Internal
+import           Network.HTTP.Client.TLS
+import           Network.HTTP.Types
+import           Options.Applicative
 import           RIO
 import qualified RIO.ByteString               as B
 import qualified RIO.ByteString.Lazy          as BL
-import           RIO.Process                  (HasProcessContext (processContextL),
-                                               ProcessContext, closed,
-                                               mkDefaultProcessContext, proc,
-                                               readProcessStdout_, setStderr,
-                                               setStdin, setStdout)
-import           System.IO.Error              (userError)
-import           Text.HTML.Scalpel.Core       (attr, scrapeStringLike, (@:),
-                                               (@=))
-import           Text.Printf                  (printf)
-import           Text.Regex.Posix             ((=~))
+import           RIO.Process
+import           System.IO.Error
+import           Text.HTML.Scalpel.Core
+import           Text.Printf
+import           Text.Regex.Posix
 
 userAgent :: B.ByteString
 userAgent = "wi2-300-login"
@@ -70,7 +50,6 @@ parseOpts = execParser $ info opts (header "Logins to https://service.wi2.ne.jp"
     timeoutFromSeconds = \case
       Nothing -> responseTimeoutNone
       Just n  -> responseTimeoutMicro (1000000 * n)
-
 
 main :: IO ()
 main = do
@@ -103,44 +82,51 @@ instance HasProcessContext Env where
 
 run :: RIO Env ()
 run = do
-  Env { httpManager } <- ask
   username <- envchain envchainUsername
   password <- envchain envchainPassword
-  confirmNoRobotsTxt httpManager
-  token <- getCSRFToken httpManager
-  login username password token httpManager
+  confirmNoRobotsTxt
+  token <- getCSRFToken
+  login username password token
   where
-    envchain envvar =
-      proc "envchain" [envchainGroup, "sh", "-c", "printf %s $" <> envvar] $ \conf ->
-        BL.toStrict <$> readProcessStdout_ (closeAllPipes conf)
-    closeAllPipes = setStdin closed . setStdout closed . setStderr closed
-    confirmNoRobotsTxt manager =
-      void $ send manager "https://service.wi2.ne.jp/robots.txt"
+    confirmNoRobotsTxt =
+      void $ send "https://service.wi2.ne.jp/robots.txt"
                   (\req -> req { checkResponse = assertStatusCode [404] })
-    getCSRFToken manager = do
-      res <- send manager "https://service.wi2.ne.jp/wi2net/Login/2/" $ \req ->
+    getCSRFToken = do
+      res <- send "https://service.wi2.ne.jp/wi2net/Login/2/" $ \req ->
         req { checkResponse = assertStatusCode [200, 302] }
       let Response { responseStatus = Status code _, responseBody } = res
       when (code == 302) $ throwIO (userError "You have already logged in")
       case scrapeStringLike responseBody $ attr "value" ("input" @: ["name" @= "postKey"]) of
         Nothing    -> throwIO (userError "Could not extract a CSRF token")
         Just token -> return (BL.toStrict token)
-    login username password token manager = do
-      res <- send manager "https://service.wi2.ne.jp/wi2net/Login/1/?Wi2=1" $ \req ->
+    login username password token = do
+      res <- send "https://service.wi2.ne.jp/wi2net/Login/1/?Wi2=1" $ \req ->
         urlEncodedBody [("id", username), ("pass", password), ("postKey", token)]
                        req { checkResponse = assertStatusCode [200, 302] }
       case lookup hLocation . responseHeaders $ res of
         Just l | isCorrectLocation l -> B.putStr "Successfully logged in.\n"
-        _                            -> throwIO $ userError "Failed to login"
+        _      -> throwIO $ userError "Failed to login"
     isCorrectLocation l =
       l =~ ("\\`/wi2net/Top/2/?(\\?SSID=[0-9a-f]+)?/?\\'" :: B.ByteString) :: Bool
-    send manager url modifyReq = do
-      req <- modifyReq <$> parseRequest url
-      logDebug $ displayBytesUtf8 $ method req <> ": " <> fromString url
-      res <- liftIO $ httpLbs req manager
-      let Response { responseStatus = Status code mes } = res
-      logDebug $ displayShow code <> displayBytesUtf8 (" " <> mes)
-      return res
-    assertStatusCode expected _ Response { responseStatus = Status actual _ } =
-      unless (actual `elem` expected) $
-        throwIO (userError (printf "Expected %s, got %d" (show expected) actual))
+
+envchain :: String -> RIO Env B.ByteString
+envchain envvar =
+  proc "envchain" [envchainGroup, "sh", "-c", "printf %s $" <> envvar] $ \conf ->
+    BL.toStrict <$> readProcessStdout_ (closeAllPipes conf)
+  where
+    closeAllPipes = setStdin closed . setStdout closed . setStderr closed
+
+send :: String -> (Request -> Request) -> RIO Env (Response BL.ByteString)
+send url modifyReq = do
+  Env { httpManager } <- ask
+  req <- modifyReq <$> parseRequest url
+  logDebug $ displayBytesUtf8 $ method req <> ": " <> fromString url
+  res <- liftIO $ httpLbs req httpManager
+  let Response { responseStatus = Status code mes } = res
+  logDebug $ displayShow code <> displayBytesUtf8 (" " <> mes)
+  return res
+
+assertStatusCode :: (MonadIO m) => [Int] -> a -> Response b -> m ()
+assertStatusCode expected _ Response { responseStatus = Status actual _ } =
+  unless (actual `elem` expected) $
+    throwIO (userError (printf "Expected %s, got %d" (show expected) actual))

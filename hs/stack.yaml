@@ -18,7 +18,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-9.21
+resolver: lts-13.5
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -40,16 +40,13 @@ packages:
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
 extra-deps:
-- http-client-0.5.13.1
+- http-client-0.5.14
 - http-client-tls-0.3.5.3
-- http-types-0.12.1
-- optparse-applicative-0.14.2.0
+- http-types-0.12.2
+- optparse-applicative-0.14.3.0
 - regex-posix-0.95.2
-- rio-0.1.5.0
+- rio-0.1.8.0
 - scalpel-core-0.5.1
-- typed-process-0.2.3.0
-- unliftio-0.2.8.0
-- unliftio-core-0.1.2.0
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
