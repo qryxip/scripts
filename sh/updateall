@@ -36,37 +36,67 @@ if [ -e ~/venvs/playground/bin/pip3 ]; then
 fi
 
 if [ -e ~/venvs/http/bin/pip3 ]; then
-  echo -e "\n${bold}pip3 (http)${ansi_reset}"
+  echo -e "\n${bold}pip3 (~/venvs/http)${ansi_reset}"
   ~/venvs/http/bin/pip3 install -U pip httpie
 fi
 
+if [ -e ~/venvs/oj/bin/pip3 ]; then
+  echo -e "\n${bold}pip3 (~/venvs/oj)${ansi_reset}"
+  ~/venvs/oj/bin/pip3 install -U pip online-judge-tools
+fi
+
 if [ -e ~/venvs/pygmentize/bin/pip3 ]; then
-  echo -e "\n${bold}pip3 (pygmentize)${ansi_reset}"
+  echo -e "\n${bold}pip3 (~/venvs/pygmentize)${ansi_reset}"
   ~/venvs/pygmentize/bin/pip3 install -U pip tw2.pygmentize
 fi
 
 if [ -e ~/venvs/ranger/bin/pip3 ]; then
-  echo -e "\n${bold}pip3 (ranger)${ansi_reset}"
+  echo -e "\n${bold}pip3 (~/venvs/ranger)${ansi_reset}"
   ~/venvs/ranger/bin/pip3 install -U pip ranger-fm
 fi
 
-if [ -e ~/venvs/oj/bin/pip3 ]; then
-  echo -e "\n${bold}pip3 (oj)${ansi_reset}"
-  ~/venvs/oj/bin/pip3 install -U pip online-judge-tools
-fi
+# if which gem > /dev/null 2>&1; then
+#   echo -e "\n${bold}gem${ansi_reset}"
+#   gem update
+# fi
 
 if which npm > /dev/null 2>&1; then
   if which npm | grep ~ > /dev/null 2>&1; then
-    echo -e "\n${bold}npm (LTS)${ansi_reset}"
+    echo -e "\n${bold}npm${ansi_reset}"
     if [ -z "$(npm update -g)" ]; then
       echo "${bold}No packages to update.${ansi_reset}"
     fi
+    wd=`pwd`
+    cd ~/node/textlint
+    echo -e "\n${bold}npm (~/node/textlint)${ansi_reset}"
+    if [ -z "$(npm update)" ]; then
+      echo "${bold}No packages to update.${ansi_reset}"
+    fi
+    cd ~/node/typescript
+    echo -e "\n${bold}npm (~/node/typescript)${ansi_reset}"
+    if [ -z "$(npm update)" ]; then
+      echo "${bold}No packages to update.${ansi_reset}"
+    fi
+    cd $wd
   fi
 fi
 
 if false; then
   echo -e "\n${bold}Go${ansi_reset}"
   go get -u all
+fi
+
+if which opam > /dev/null 2>&1; then
+  echo -e "\n${bold}Opam${ansi_reset}"
+  if netctl-auto list | rg '^\*.*ac\.jp$' > /dev/null; then
+    echo skipping...
+  else
+    wd="`pwd`"
+    cd ~/.ghq/github.com/gfngfn/SATySFi
+    git fetch --all -p --tags && git merge --ff-only origin/master
+    cd "$wd"
+    opam update && opam upgrade
+  fi
 fi
 
 if [ -e ~/.cargo/bin/rustup ]; then
@@ -78,4 +108,11 @@ if [ -e ~/.cargo/bin/rustup ]; then
   fi
   ~/.cargo/bin/rustup update stable
   ~/.cargo/bin/cargo +stable install-update -ag
+  # if [ -z $(cargo install-update -la | sed -n 's/^alacritty[0-9v\. ]\+\(No\)/\1/gp') ]; then
+  #   read -p 'Update "alacritty"? [y/N]: ' reply
+  #   case $reply in
+  #     "y" | "Y" ) ~/.cargo/bin/cargo +stable install-update -g alacritty;;
+  #     * ) echo skipped;;
+  #   esac
+  # fi
 fi
