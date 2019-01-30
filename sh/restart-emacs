@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -euE -o pipefail
+
+if pidof emacs > /dev/null; then
+  emacsclient -e '(kill-emacs)'
+fi
+LANG=ja_JP.UTF-8 LANGUAGE=ja_JP.UTF-8 emacs --daemon
