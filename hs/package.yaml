@@ -1,9 +1,9 @@
 name:                scripts
 version:             0.1.0.0
-github:              "wariuni/scripts"
+github:              "qryxip/scripts"
 license:             CC0-1.0
 author:              "Ryo Yamashita"
-maintainer:          "wariuni@gmail.com"
+maintainer:          "qryxip@gmail.com"
 copyright:           "2019 Ryo Yamashita"
 
 extra-source-files: []
