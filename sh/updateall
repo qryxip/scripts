@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -euE -o pipefail
 
@@ -55,13 +55,13 @@ if [ -e ~/venvs/ranger/bin/pip3 ]; then
   ~/venvs/ranger/bin/pip3 install -U pip ranger-fm
 fi
 
-# if which gem > /dev/null 2>&1; then
-#   echo -e "\n${bold}gem${ansi_reset}"
-#   gem update
-# fi
+if which gem > /dev/null 2>&1; then
+  echo -e "\n${bold}gem${ansi_reset}"
+  gem update
+fi
 
 if which npm > /dev/null 2>&1; then
-  if which npm | grep ~ > /dev/null 2>&1; then
+  if which npm | grep ~/.nvm > /dev/null 2>&1; then
     echo -e "\n${bold}npm${ansi_reset}"
     if [ -z "$(npm update -g)" ]; then
       echo "${bold}No packages to update.${ansi_reset}"
@@ -102,7 +102,9 @@ fi
 if [ -e ~/.cargo/bin/rustup ]; then
   echo -e "\n${bold}Cargo${ansi_reset}"
   ~/.cargo/bin/rustup self update
-  if [ -z $(cargo install-update -la | sed -n 's/^racer[0-9v\. ]\+\(No\)/\1/gp') ]; then
+  racer_outdated=$(cargo install-update -la | sed -n 's/^racer[0-9v\. ]\+\(Yes\)/\1/gp')
+  tarpaulin_outdated=$(cargo install-update -la | sed -n 's/^cargo-tarpaulin[0-9v\. ]\+\(Yes\)/\1/gp')
+  if [ -n "${racer_outdated}${tarpaulin_outdated}" ]; then
     ~/.cargo/bin/rustup update nightly
     ~/.cargo/bin/cargo +nightly install-update racer
   fi
