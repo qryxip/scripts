@@ -56,7 +56,10 @@ main = do
   Opts {..} <- parseOpts
   httpManager <- setupManager responseTimeout
   processContext <- mkDefaultProcessContext
-  logOpts <- logOptionsHandle stderr True
+  logOpts <- setLogVerboseFormat True <$>
+             setLogUseColor True <$>
+             setLogMinLevel LevelInfo <$>
+             logOptionsHandle stderr False
   withLogFunc logOpts $ \logFunc -> runRIO Env {..} run
   where
     setupManager managerResponseTimeout = newManager tlsManagerSettings
@@ -112,7 +115,9 @@ run = do
 envchain :: String -> RIO Env B.ByteString
 envchain envvar =
   proc "envchain" [envchainGroup, "sh", "-c", "printf %s $" <> envvar] $ \conf ->
-    BL.toStrict <$> readProcessStdout_ (closeAllPipes conf)
+    BL.toStrict <$> readProcessStdout_ (closeAllPipes conf) >>= \case
+      "" -> throwIO . userError $ printf "Not found: %s/$%s" envchainGroup envvar
+      s  -> return s
   where
     closeAllPipes = setStdin closed . setStdout closed . setStderr closed
 
@@ -120,10 +125,10 @@ send :: String -> (Request -> Request) -> RIO Env (Response BL.ByteString)
 send url modifyReq = do
   Env { httpManager } <- ask
   req <- modifyReq <$> parseRequest url
-  logDebug $ displayBytesUtf8 $ method req <> ": " <> fromString url
+  logInfo . displayBytesUtf8 $ method req <> ": " <> fromString url
   res <- liftIO $ httpLbs req httpManager
   let Response { responseStatus = Status code mes } = res
-  logDebug $ displayShow code <> displayBytesUtf8 (" " <> mes)
+  logInfo $ displayShow code <> displayBytesUtf8 (" " <> mes)
   return res
 
 assertStatusCode :: (MonadIO m) => [Int] -> a -> Response b -> m ()

@@ -17,68 +17,56 @@ if [ "`whoami`" = root ]; then
   exit 1
 fi
 
-echo "${bold}yay${ansi_reset}"
-PATH=/usr/bin:$PATH yay -Syu
+if which yay > /dev/null 2>&1; then
+  echo "${bold}yay${ansi_reset}"
+  PATH="/usr/bin:$PATH" yay -Syu
+fi
 
 if [ -e /opt/xkeysnail/bin/pip3 ]; then
-  echo -e "\n${bold}pip3 (xkeysnail)${ansi_reset}"
+  echo -e "\n${bold}xkeysnail${ansi_reset}"
   sudo /opt/xkeysnail/bin/pip3 install -U pip xkeysnail
 fi
 
-if [ -e ~/venvs/playground/bin/pip3 ]; then
-  echo -e "\n${bold}pip3 (playground)${ansi_reset}"
-  packages=`~/venvs/playground/bin/pip3 list -o | tail +3 | awk '{print $1}'`
-  if [ -n "$packages" ]; then
-    echo $packages | xargs ~/venvs/playground/bin/pip3 install -U
-  else
-    echo 'No package to update'
-  fi
+PYTHON_VERSION=3.7.2
+echo -e "\n${bold}pip3 (~/tools/python/$PYTHON_VERSION/)${ansi_reset}"
+if [ -e ~/tools/python/"$PYTHON_VERSION"/http/bin/pip3 ]; then
+  ~/tools/python/"$PYTHON_VERSION"/http/bin/pip3 install -U pip httpie
 fi
-
-if [ -e ~/venvs/http/bin/pip3 ]; then
-  echo -e "\n${bold}pip3 (~/venvs/http)${ansi_reset}"
-  ~/venvs/http/bin/pip3 install -U pip httpie
+if [ -e ~/tools/python/"$PYTHON_VERSION"/oj/bin/pip3 ]; then
+  ~/tools/python/"$PYTHON_VERSION"/oj/bin/pip3 install -U pip online-judge-tools
 fi
-
-if [ -e ~/venvs/oj/bin/pip3 ]; then
-  echo -e "\n${bold}pip3 (~/venvs/oj)${ansi_reset}"
-  ~/venvs/oj/bin/pip3 install -U pip online-judge-tools
+if [ -e ~/tools/python/"$PYTHON_VERSION"/pipenv/bin/pip3 ]; then
+  ~/tools/python/"$PYTHON_VERSION"/pipenv/bin/pip3 install -U pip pipenv
 fi
-
-if [ -e ~/venvs/pygmentize/bin/pip3 ]; then
-  echo -e "\n${bold}pip3 (~/venvs/pygmentize)${ansi_reset}"
-  ~/venvs/pygmentize/bin/pip3 install -U pip tw2.pygmentize
+if [ -e ~/tools/python/"$PYTHON_VERSION"/ptpython/bin/pip3 ]; then
+  ~/tools/python/"$PYTHON_VERSION"/ptpython/bin/pip3 install -U pip ptpython
 fi
-
-if [ -e ~/venvs/ranger/bin/pip3 ]; then
-  echo -e "\n${bold}pip3 (~/venvs/ranger)${ansi_reset}"
-  ~/venvs/ranger/bin/pip3 install -U pip ranger-fm
+if [ -e ~/tools/python/"$PYTHON_VERSION"/pygmentize/bin/pip3 ]; then
+  ~/tools/python/"$PYTHON_VERSION"/pygmentize/bin/pip3 install -U pip tw2.pygmentize
 fi
-
+if [ -e ~/tools/python/"$PYTHON_VERSION"/ranger/bin/pip3 ]; then
+  ~/tools/python/"$PYTHON_VERSION"/ranger/bin/pip3 install -U pip ranger-fm
+fi
 if which gem > /dev/null 2>&1; then
   echo -e "\n${bold}gem${ansi_reset}"
   gem update
 fi
 
 if which npm > /dev/null 2>&1; then
-  if which npm | grep ~/.nvm > /dev/null 2>&1; then
-    echo -e "\n${bold}npm${ansi_reset}"
-    if [ -z "$(npm update -g)" ]; then
-      echo "${bold}No packages to update.${ansi_reset}"
-    fi
-    wd=`pwd`
-    cd ~/node/textlint
-    echo -e "\n${bold}npm (~/node/textlint)${ansi_reset}"
-    if [ -z "$(npm update)" ]; then
-      echo "${bold}No packages to update.${ansi_reset}"
-    fi
-    cd ~/node/typescript
-    echo -e "\n${bold}npm (~/node/typescript)${ansi_reset}"
-    if [ -z "$(npm update)" ]; then
-      echo "${bold}No packages to update.${ansi_reset}"
-    fi
-    cd $wd
+  echo -e "\n${bold}npm${ansi_reset}"
+  node_version=$(node --version)
+  wd=$(pwd)
+  cd ~/tools/node/"$node_version"/textlint
+  echo -e "\n${bold}npm (~/tools/node/$node_version/textlint)${ansi_reset}"
+  if [ -z "$(npm update)" ]; then
+    echo "${bold}No packages to update.${ansi_reset}"
   fi
+  cd ~/tools/node/"$node_version"/typescript
+  echo -e "\n${bold}npm (~/tools/node/$node_version/typescript)${ansi_reset}"
+  if [ -z "$(npm update)" ]; then
+    echo "${bold}No packages to update.${ansi_reset}"
+  fi
+  cd "$wd"
 fi
 
 if false; then
@@ -88,14 +76,15 @@ fi
 
 if which opam > /dev/null 2>&1; then
   echo -e "\n${bold}Opam${ansi_reset}"
-  if netctl-auto list | rg '^\*.*ac\.jp$' > /dev/null; then
+  if which netctl-auto > /dev/null 2>&1 && netctl-auto list | rg '^\*.*ac\.jp$' > /dev/null; then
     echo skipping...
   else
-    wd="`pwd`"
+    wd=$(pwd)
     cd ~/.ghq/github.com/gfngfn/SATySFi
-    git fetch --all -p --tags && git merge --ff-only origin/master
+    git pull --ff-only origin master
     cd "$wd"
-    opam update && opam upgrade
+    opam update
+    opam upgrade
   fi
 fi
 
