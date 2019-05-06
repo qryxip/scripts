@@ -13,8 +13,10 @@ module Main
 where
 
 import           Control.Applicative
-import           Network.HTTP.Client
-import           Network.HTTP.Client.Internal
+import           Network.HTTP.Client.Conduit
+import           Network.HTTP.Client.Internal   ( Response(Response)
+                                                , BodyReader
+                                                )
 import           Network.HTTP.Client.TLS
 import           Network.HTTP.Types
 import           Options.Applicative
@@ -66,12 +68,12 @@ main = do
   processContext <- mkDefaultProcessContext
   logOpts        <-
     setLogVerboseFormat True
-    <$> setLogUseColor True
-    <$> setLogMinLevel LevelInfo
+    .   setLogUseColor True
+    .   setLogMinLevel LevelInfo
     <$> logOptionsHandle stderr False
   withLogFunc logOpts $ \logFunc -> runRIO Env { .. } run
  where
-  setupManager managerResponseTimeout = newManager tlsManagerSettings
+  setupManager managerResponseTimeout = newManagerSettings tlsManagerSettings
     { managerResponseTimeout
     , managerModifyRequest
     }
@@ -94,6 +96,9 @@ instance HasLogFunc Env where
 instance HasProcessContext Env where
   processContextL = lens processContext (\e c -> e { processContext = c })
 
+instance HasHttpManager Env where
+  getHttpManager = httpManager
+
 run :: RIO Env ()
 run = do
   username <- envchain envchainUsername
@@ -105,30 +110,30 @@ run = do
   envchain
     :: String               -- ^ Name of the environment variable
     -> RIO Env B.ByteString -- ^ The value
-  envchain envvar =
-    proc "envchain" [envchainGroup, "sh", "-c", "printf %s $" <> envvar]
-      $ \conf ->
-          BL.toStrict <$> readProcessStdout_ (closeAllPipes conf) >>= \case
-            "" -> throwIO . userError $ printf "Not found: %s/$%s"
-                                               envchainGroup
-                                               envvar
-            s -> return s
-    where closeAllPipes = setStdin closed . setStdout closed . setStderr closed
+  envchain envvar = cmd $ \conf ->
+    BL.toStrict <$> readProcessStdout_ (closeAllPipes conf) >>= \case
+      "" ->
+        throwIO . userError $ printf "Not found: %s/$%s" envchainGroup envvar
+      s -> return s
+   where
+    cmd = proc "envchain" [envchainGroup, "sh", "-c", "printf %s $" <> envvar]
+    closeAllPipes = setStdin closed . setStdout closed . setStderr closed
 
   confirmNoRobotsTxt :: RIO Env ()
-  confirmNoRobotsTxt = void $ send url f
+  confirmNoRobotsTxt = void $ request httpNoBody url modifyReq
    where
     url = "https://service.wi2.ne.jp/robots.txt"
-    f r = r { checkResponse = assertStatusCode [404] }
+    modifyReq r = r { checkResponse = assertStatusCode [404] }
 
   retrieveCSRFToken :: RIO Env B.ByteString
   retrieveCSRFToken = do
-    res <- send url $ \r -> r { checkResponse = assertStatusCode [200, 302] }
+    res <- request httpLbs url
+      $ \r -> r { checkResponse = assertStatusCode [200, 302] }
     let Response { responseStatus = Status code _, responseBody } = res
     when (code == 302) $ throwIO (userError "You have already logged in")
     case scrapeStringLike responseBody selector of
-      Nothing -> throwIO (userError "Could not extract a CSRF token")
-      Just t  -> return (BL.toStrict t)
+      Nothing -> throwIO $ userError "Could not extract a CSRF token"
+      Just t  -> return $ BL.toStrict t
    where
     url      = "https://service.wi2.ne.jp/wi2net/Login/2/"
     selector = attr "value" ("input" @: ["name" @= "postKey"])
@@ -139,12 +144,12 @@ run = do
     -> B.ByteString -- ^ CRLF Token
     -> RIO Env ()
   login username password token = do
-    res <- send url $ \req -> urlEncodedBody
+    res <- request httpLbs url $ \req -> urlEncodedBody
       [("id", username), ("pass", password), ("postKey", token)]
       req { checkResponse = assertStatusCode [200, 302] }
     case lookup hLocation . responseHeaders $ res of
       Just l | isCorrectLocation l -> logInfo "Successfully logged in."
-      Just l -> logError ("Location: " <> (displayBytesUtf8 l)) >> throwError
+      Just l -> logError ("Location: " <> displayBytesUtf8 l) >> throwError
       _ -> logError "Location: <none>" >> throwError
    where
     url = "https://service.wi2.ne.jp/wi2net/Login/1/?Wi2=1"
@@ -152,15 +157,15 @@ run = do
       l =~ ("\\`/wi2net/Top/2/?(\\?SSID=[0-9a-f]+)?/?\\'" :: B.ByteString) :: Bool
     throwError = throwIO $ userError "Failed to login"
 
-  send
-    :: String                           -- ^ URL
-    -> (Request -> Request)             -- ^ Modification
-    -> RIO Env (Response BL.ByteString) -- ^ Response
-  send url modifyReq = do
-    Env { httpManager } <- ask
-    req                 <- modifyReq <$> parseRequest url
+  request
+    :: (Request -> RIO Env (Response a)) -- ^ Performance
+    -> String                            -- ^ URL
+    -> (Request -> Request)              -- ^ Modification
+    -> RIO Env (Response a)              -- ^ Response
+  request performe url modifyReq = do
+    req <- modifyReq <$> parseRequest url
     logInfo . displayBytesUtf8 $ method req <> ": " <> fromString url
-    res <- liftIO $ httpLbs req httpManager
+    res <- performe req
     let Response { responseStatus = Status code mes } = res
     logInfo $ displayShow code <> displayBytesUtf8 (" " <> mes)
     return res
