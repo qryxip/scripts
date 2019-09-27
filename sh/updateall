@@ -13,13 +13,21 @@ else
 fi
 
 if [ "`whoami`" = root ]; then
-  echo "${yellow}Don't run this script as root.${ansi_reset}"
+  >&2 echo "${yellow}Don't run this script as root.${ansi_reset}"
   exit 1
 fi
 
 if which yay > /dev/null 2>&1; then
   echo "${bold}yay${ansi_reset}"
   PATH="/usr/bin:$PATH" yay -Syu
+fi
+
+if which nix > /dev/null 2>&1; then
+  echo "${bold}nix${ansi_reset}"
+  unprivileged_userns_clone="$(sysctl -n kernel.unprivileged_userns_clone)"
+  sudo sysctl kernel.unprivileged_userns_clone=1
+  nix-env -u
+  sudo sysctl "kernel.unprivileged_userns_clone=$unprivileged_userns_clone"
 fi
 
 if [ -e /opt/xkeysnail/bin/pip3 ]; then
@@ -29,6 +37,9 @@ fi
 
 PYTHON_VERSION=3.7.2
 echo -e "\n${bold}pip3 (~/tools/python/$PYTHON_VERSION/)${ansi_reset}"
+if [ -e ~/tools/python/"$PYTHON_VERSION"/aws/bin/pip3 ]; then
+  ~/tools/python/"$PYTHON_VERSION"/aws/bin/pip3 install -U pip awscli
+fi
 if [ -e ~/tools/python/"$PYTHON_VERSION"/http/bin/pip3 ]; then
   ~/tools/python/"$PYTHON_VERSION"/http/bin/pip3 install -U pip httpie
 fi
@@ -47,6 +58,7 @@ fi
 if [ -e ~/tools/python/"$PYTHON_VERSION"/ranger/bin/pip3 ]; then
   ~/tools/python/"$PYTHON_VERSION"/ranger/bin/pip3 install -U pip ranger-fm
 fi
+
 if which gem > /dev/null 2>&1; then
   echo -e "\n${bold}gem${ansi_reset}"
   gem update
@@ -83,8 +95,11 @@ if which opam > /dev/null 2>&1; then
     cd ~/.ghq/github.com/gfngfn/SATySFi
     git pull --ff-only origin master
     cd "$wd"
+    unprivileged_userns_clone="$(sysctl -n kernel.unprivileged_userns_clone)"
+    sudo sysctl kernel.unprivileged_userns_clone=1
     opam update
     opam upgrade
+    sudo sysctl "kernel.unprivileged_userns_clone=$unprivileged_userns_clone"
   fi
 fi
 
@@ -92,10 +107,11 @@ if [ -e ~/.cargo/bin/rustup ]; then
   echo -e "\n${bold}Cargo${ansi_reset}"
   ~/.cargo/bin/rustup self update
   racer_outdated=$(cargo install-update -la | sed -n 's/^racer[0-9v\. ]\+\(Yes\)/\1/gp')
-  tarpaulin_outdated=$(cargo install-update -la | sed -n 's/^cargo-tarpaulin[0-9v\. ]\+\(Yes\)/\1/gp')
-  if [ -n "${racer_outdated}${tarpaulin_outdated}" ]; then
+  cargo_snippet_outdated=$(cargo install-update -la | sed -n 's/^cargo-snippet[0-9v\. ]\+\(Yes\)/\1/gp')
+  #tarpaulin_outdated=$(cargo install-update -la | sed -n 's/^cargo-tarpaulin[0-9v\. ]\+\(Yes\)/\1/gp')
+  if [ -n "${racer_outdated}${cargo_snippet_outdated}" ]; then
     ~/.cargo/bin/rustup update nightly
-    ~/.cargo/bin/cargo +nightly install-update racer
+    ~/.cargo/bin/cargo +nightly install-update racer cargo-snippet
   fi
   ~/.cargo/bin/rustup update stable
   ~/.cargo/bin/cargo +stable install-update -ag
