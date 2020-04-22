@@ -1,0 +1,235 @@
+#!/usr/bin/python3
+import getpass
+import os
+import platform
+import re
+import shutil
+import subprocess
+import sys
+from argparse import ArgumentParser
+from pathlib import Path
+from typing import Optional, List
+
+
+def main() -> None:
+    parser = ArgumentParser(description='Update all.')
+    parser.add_argument('sections', nargs='*', help='Run only the sections')
+    sections: List[str] = parser.parse_args().sections
+
+    if getpass.getuser() == 'root':
+        eprint_yellow_bold('Do not run this script as root.')
+        exit(1)
+
+    def matches(section: str) -> bool:
+        return not sections or section in sections
+
+    success = True
+
+    if Path('/', 'etc', 'arch-release').is_file() and matches('archlinux'):
+        archlinux()
+
+    if (nix_env_exe := shutil.which('nix-env')) and matches('nix'):
+        nix(nix_env_exe)
+
+    if (pip_exe := shutil.which('/opt/xkeysnail/bin/pip')) \
+            and matches('xkeysnail'):
+        xkeysnail(pip_exe)
+
+    if matches('python'):
+        python()
+
+    if matches('ruby'):
+        ruby()
+
+    if matches('node'):
+        node()
+
+    if matches('ocaml'):
+        ocaml()
+
+    if matches('go'):
+        go()
+
+    if matches('rust'):
+        rust()
+
+    if not success:
+        eprint_yellow_bold('Some commands failed.')
+        exit(1)
+
+
+def archlinux() -> bool:
+    eprint_colored('[archlinux] Updating...', bold=True)
+    success = subprocess.run(['sudo', 'pacman', '-Syu']).returncode == 0
+    if yay := shutil.which('yay'):
+        success &= subprocess.run([yay, '-Syu']).returncode == 0
+    return success
+
+
+def nix(nix_env_exe: str) -> bool:
+    eprint_colored('[nix] Updating...', bold=True)
+    return subprocess.run([nix_env_exe, '-u']).returncode == 0
+
+
+def xkeysnail(pip_exe: str) -> bool:
+    return subprocess.run(
+        ['sudo', pip_exe, 'install', '-U', 'pip', 'xkeysnail'],
+    ).returncode == 0
+
+
+def python() -> bool:
+    success = True
+
+    eprint_colored('[python] Updating...', bold=True)
+
+    for dir_name, package in [('aws', 'awscli'),
+                              ('http', 'httpie'),
+                              ('oj', 'online-judge-tools'),
+                              ('pipenv', 'pipenv'),
+                              ('ptpython', 'ptpython'),
+                              ('pygmentize', 'tw2.pygmentize'),
+                              ('ranger', 'ranger-fm'),
+                              ('remarshal', 'remarshal')]:
+        pip = Path.home().joinpath(
+            'tools', 'python', platform.python_version(), dir_name, 'bin',
+            'pip3'
+        )
+
+        if pip.is_file():
+            eprint_colored(f'[python] {pip}', bold=True)
+            success &= subprocess.run(
+                [pip, 'install', '-U', 'pip', package],
+            ).returncode == 0
+
+    return success
+
+
+def ruby() -> bool:
+    success = True
+    if gem := shutil.which('ruby'):
+        eprint_colored('[ruby] Updating...', bold=True)
+        success &= subprocess.run([gem, 'update']).returncode == 0
+    else:
+        eprint_colored('[ruby] `gem` not found. Skipping...', bold=True, fg=3)
+    return success
+
+
+def node() -> bool:
+    npm = shutil.which('npm')
+
+    if not npm:
+        eprint_colored('[node] `npm` not found. Skipping...', bold=True, fg=3)
+        return True
+
+    npm: str = npm
+
+    node_version = subprocess.run(
+        ['node', '--version'], stdout=subprocess.PIPE, check=True,
+    ).stdout.decode('utf8').rstrip()
+
+    success = True
+
+    for name in ['jest', 'textlint', 'typescript']:
+        eprint_bold(f'# {npm}')
+        output = subprocess.run(
+            [npm, 'update'], stdout=subprocess.PIPE,
+            cwd=os.path.expanduser(f'~/tools/node/{node_version}/{name}'),
+            check=False,
+        )
+        success &= output.returncode == 0
+        stdout = output.stdout.decode().rstrip()
+        if stdout:
+            print(stdout, flush=True)
+        if not stdout:
+            eprint_colored('[node] No packages to update', bold=True)
+
+    return success
+
+
+def ocaml() -> bool:
+    opam_exe = shutil.which('opam')
+
+    if not opam_exe:
+        eprint_colored('[ocaml] `opam` not found. Skipping...', bold=True,
+                       fg=3)
+        return True
+
+    success = subprocess.run(['opam', 'update']).returncode == 0
+    success &= subprocess.run(['opam', 'upgrade', '-y']).returncode == 0
+    return success
+
+
+def go() -> bool:
+    go_exe = shutil.which('go')
+
+    if not go:
+        eprint_colored('[go] `go` not found. Skipping...', bold=True, fg=3)
+        return True
+
+    return subprocess.run([go_exe, 'get', '-u', 'all']).returncode == 0
+
+
+def rust() -> bool:
+    pattern = r'(racer|cargo-snippet)(\s+v[0-9]+\.[0-9]+\.[0-9]+){2}\s+Yes'
+
+    rustup_exe = shutil.which('rustup')
+
+    if not rustup_exe:
+        eprint_colored('[rust] `rustup` not found. Skipping...', bold=True,
+                       fg=3)
+        return True
+
+    eprint_colored('[rust] Updating...', bold=True)
+
+    success = subprocess.run([rustup_exe, 'self', 'update']).returncode == 0
+
+    if success:
+        cargo_install_update_la = subprocess.run(
+            ['cargo', 'install-update', '-la'], stdout=subprocess.PIPE,
+            check=True,
+        ).stdout.decode()
+
+        if re.search(pattern, cargo_install_update_la):
+            success &= subprocess.run(
+                [rustup_exe, 'update', 'nightly'],
+            ).returncode == 0
+            success &= subprocess.run(
+                ['cargo', '+nightly', 'install-update', 'cargo-snippet',
+                 'racer', 'papyrus'],
+            ).returncode == 0
+
+        success &= subprocess.run(
+            [rustup_exe, 'update', 'stable']).returncode == 0
+        success &= subprocess.run(
+            ['cargo', '+stable', 'install-update', '-ag']).returncode == 0
+
+    return success
+
+
+def eprint_bold(text: str) -> None:
+    text = f'\033[1m{text}\033[m' if sys.stderr.isatty() else text
+    print(text, file=sys.stderr, flush=True)
+
+
+def eprint_yellow_bold(text: str) -> None:
+    text = f'\033[1m\033[33m{text}\033[m' if sys.stderr.isatty() else text
+    print(text, file=sys.stderr, flush=True)
+
+
+def eprint_colored(text: str,
+                   bold: bool = False,
+                   fg: Optional[int] = None) -> None:
+    escape = '\x1b'
+    color = sys.stderr.isatty() and os.environ.get('TERM') != 'dumb'
+
+    print(
+        f'{f"{escape}[1m" if color and bold else ""}'
+        f'{f"{escape}[3{fg}m" if color and fg is not None else ""}'
+        f'{text}'
+        f'{f"{escape}[m" if color else ""}',
+        file=sys.stderr, flush=True,
+    )
+
+
+if __name__ == '__main__':
+    main()
