@@ -1,5 +1,5 @@
 #!/bin/sh
-if [ -f ~/.ghq/github.com/KKPMW/dircolors-moonshine/dircolors.moonshine ]; then
-  eval `dircolors ~/.ghq/github.com/KKPMW/dircolors-moonshine/dircolors.moonshine`
+if [ -f ~/src/github.com/KKPMW/dircolors-moonshine/dircolors.moonshine ]; then
+  eval "$(dircolors ~/src/github.com/KKPMW/dircolors-moonshine/dircolors.moonshine)"
 fi
 eza -lg --git --color-scale --time-style long-iso "$@"
